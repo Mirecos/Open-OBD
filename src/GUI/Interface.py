@@ -2,6 +2,8 @@ import obd
 import tkinter as tk
 from tkinter import StringVar
 
+from API.Interactions import query_command
+
 class OpenOBD_Interface:
     
     def __init__(self, connection: obd.OBD):
@@ -25,25 +27,20 @@ class OpenOBD_Interface:
 
         # Start updating functions
         self.update_simple_data()
-        
+
         self.root.mainloop()
-        
+
     def update_simple_data(self):
-        speed = self.query_command(obd.commands.SPEED)
+        speed = query_command(self.connection, obd.commands.SPEED)
         if speed.value is not None:
             self.speed_var.set(f"Speed: {speed.value.to('kph')}")
         else:
             self.speed_var.set("Speed: N/A")
 
-        rpm = self.query_command(obd.commands.RPM)
+        rpm = query_command(self.connection,obd.commands.RPM)
         if rpm.value is not None:
             self.rpm_var.set(f"RPM: {rpm.value}")
         else:
             self.rpm_var.set("RPM: N/A")
 
-
         self.root.after(1000, self.update_simple_data)
-
-
-    def query_command(self, command: obd.commands):
-        return self.connection.query(command)
