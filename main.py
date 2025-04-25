@@ -11,14 +11,14 @@ class OpenOBD:
     def __init__(self, portstr=custom_portstr, baudrate=custom_baudrate):
         self.portstr = portstr
         self.baudrate = baudrate
-        self.connection = obd.OBD()
+        self.connection = obd.Async()
         self.startup()
 
     def try_connection(self):
         print("Trying to connect...")
         print("Port: ", self.portstr)
         print("Baudrate: ", self.baudrate)
-        self.connection = obd.OBD(portstr=self.custom_portstr, baudrate=self.custom_baudrate)
+        self.connection = obd.Async(portstr=self.custom_portstr, baudrate=self.custom_baudrate)
 
     def startup(self):
         available_ports = obd.scan_serial()
@@ -30,6 +30,11 @@ class OpenOBD:
                 time.sleep(5)
         
         print("Connection established...")
+        self.connection.watch(obd.commands.SPEED)
+        self.connection.watch(obd.commands.RPM)
+        self.connection.watch(obd.commands.FUEL_STATUS)
+        self.connection.watch(obd.commands.COOLANT_TEMP)
+        self.connection.start()
         self.interface = OpenOBD_Interface(self.connection)
 
 baudrate = 38400

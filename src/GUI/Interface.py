@@ -2,45 +2,71 @@ import obd
 import tkinter as tk
 from tkinter import StringVar
 
-from API.Interactions import query_command
+from ..API.Interactions import query_command
+
 
 class OpenOBD_Interface:
     
     def __init__(self, connection: obd.OBD):
         self.root = tk.Tk()
         self.root.title("Vehicle Dashboard")
-        self.root.geometry("400x200")
+        self.root.geometry("500x300")
+        self.root.configure(bg="#2c3e50")  # Set background color
         self.connection = connection
 
         # Create variables to hold values
-        self.speed_var = StringVar()
-        self.speed_var.set("Loading...")
-        self.rpm_var = StringVar()
-        self.rpm_var.set("Loading...")
+        self.speed_var = StringVar(value="Loading...")
+        self.rpm_var = StringVar(value="Loading...")
+        self.fuel_var = StringVar(value="Loading...")
+        self.temp_var = StringVar(value="Loading...")
+
 
         # Creating the GUI elements
-        self.speed_label = tk.Label(self.root, textvariable=self.speed_var, font=("Helvetica", 16))
-        self.speed_label.pack(pady=20)
-        
-        self.rpm_label = tk.Label(self.root, textvariable=self.rpm_var, font=("Helvetica", 16))
-        self.rpm_label.pack(pady=20)
+        self.create_label("Speed:", self.speed_var, 0)
+        self.create_label("RPM:", self.rpm_var, 1)
+        self.create_label("Fuel Level:", self.fuel_var, 2)
+        self.create_label("Engine Temp:", self.temp_var, 3)
 
         # Start updating functions
         self.update_simple_data()
 
         self.root.mainloop()
 
+    def create_label(self, text, variable, row):
+        """Helper function to create styled labels."""
+        label = tk.Label(self.root, text=text, font=("Helvetica", 14), bg="#2c3e50", fg="#ecf0f1")
+        label.grid(row=row, column=0, padx=10, pady=10, sticky="w")
+        value_label = tk.Label(self.root, textvariable=variable, font=("Helvetica", 14), bg="#2c3e50", fg="#1abc9c")
+        value_label.grid(row=row, column=1, padx=10, pady=10, sticky="w")
+
     def update_simple_data(self):
+        # Update speed
         speed = query_command(self.connection, obd.commands.SPEED)
         if speed.value is not None:
-            self.speed_var.set(f"Speed: {speed.value.to('kph')}")
+            self.speed_var.set(f"{speed.value.to('kph')}")
         else:
-            self.speed_var.set("Speed: N/A")
+            self.speed_var.set("N/A")
 
-        rpm = query_command(self.connection,obd.commands.RPM)
+        # Update RPM
+        rpm = query_command(self.connection, obd.commands.RPM)
         if rpm.value is not None:
-            self.rpm_var.set(f"RPM: {rpm.value}")
+            self.rpm_var.set(f"{rpm.value}")
         else:
-            self.rpm_var.set("RPM: N/A")
+            self.rpm_var.set("N/A")
 
+        # Update fuel level
+        fuel = query_command(self.connection, obd.commands.FUEL_STATUS)
+        if fuel.value is not None:
+            self.fuel_var.set(f"{fuel.value}%")
+        else:
+            self.fuel_var.set("N/A")
+
+        # Update engine temperature
+        temp = query_command(self.connection, obd.commands.COOLANT_TEMP)
+        if temp.value is not None:
+            self.temp_var.set(f"{temp.value}°C")
+        else:
+            self.temp_var.set("N/A")
+
+        # Schedule the next update
         self.root.after(1000, self.update_simple_data)
