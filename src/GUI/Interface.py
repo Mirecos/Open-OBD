@@ -67,6 +67,9 @@ class OpenOBD_Interface:
             self.temp_var.set(f"{temp.value}°C")
         else:
             self.temp_var.set("N/A")
+            
+        dtcs = query_command(self.connection, obd.commands.GET_DTC)
+        print(dtcs)
 
         # Schedule the next update
         self.root.after(1000, self.update_simple_data)

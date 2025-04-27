@@ -34,6 +34,8 @@ class OpenOBD:
         self.connection.watch(obd.commands.RPM)
         self.connection.watch(obd.commands.FUEL_STATUS)
         self.connection.watch(obd.commands.COOLANT_TEMP)
+        self.connection.watch(obd.commands.GET_DTC)
+        
         self.connection.start()
         self.interface = OpenOBD_Interface(self.connection)
 
