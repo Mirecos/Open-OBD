@@ -19,6 +19,7 @@ class OpenOBD_Interface:
         self.rpm_var = StringVar(value="Loading...")
         self.fuel_var = StringVar(value="Loading...")
         self.temp_var = StringVar(value="Loading...")
+        self.DTC_codes = StringVar(value="Loading...")
 
 
         # Creating the GUI elements
@@ -26,6 +27,7 @@ class OpenOBD_Interface:
         self.create_label("RPM:", self.rpm_var, 1)
         self.create_label("Fuel Level:", self.fuel_var, 2)
         self.create_label("Engine Temp:", self.temp_var, 3)
+        self.create_label("DTC Codes:", self.DTC_codes, 4)
 
         # Start updating functions
         self.update_simple_data()
@@ -69,7 +71,12 @@ class OpenOBD_Interface:
             self.temp_var.set("N/A")
             
         dtcs = query_command(self.connection, obd.commands.GET_DTC)
-        print(dtcs)
+        print(dtcs.value)
+        temporary = ""
+        if dtcs.value is not None:
+            for item in dtcs.value:
+                temporary += f"{item[0]} "
+        self.DTC_codes.set(temporary)
 
         # Schedule the next update
         self.root.after(1000, self.update_simple_data)
