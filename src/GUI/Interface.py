@@ -2,7 +2,7 @@ import obd
 import tkinter as tk
 from tkinter import StringVar
 
-from ..API.Interactions import query_command
+from ..API.OBDInteractions import query_command
 
 
 class OpenOBD_Interface:
