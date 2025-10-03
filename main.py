@@ -42,12 +42,16 @@ class OpenOBD:
             if not self.obd_connection:
                 print("Connection to OBD failed. Trying again in 5 seconds...")
                 time.sleep(5)
+            else:
+                print("Connected to OBD.")
         
         while not self.db_connection:
             self.init_database_connection()
             if not self.db_connection:
                 print("Connection to DB failed. Trying again in 5 seconds...")
                 time.sleep(5)
+            else:
+                print("Connected to DB.")
 
         self.init_bluetooth_connection()  # Initialize Bluetooth server
 
@@ -65,5 +69,5 @@ class OpenOBD:
         self.interface = OpenOBD_Interface(self.obd_connection)
 
 baudrate = 38400
-portstr = "/dev/pts/3"
+portstr = "/dev/pts/2"
 OpenOBD(portstr=portstr, baudrate=baudrate)

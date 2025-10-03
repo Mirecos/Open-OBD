@@ -1,0 +1,8 @@
+[bluetooth]
+# Replace with your Bluetooth adapter's MAC address
+mac_address = YOUR_MAC_ADDRESS_HERE
+channel = 4
+
+[server]
+buffer_size = 1024
+timeout = 30

@@ -1,4 +1,3 @@
 tk
 pyserial
 obd
-pybluez

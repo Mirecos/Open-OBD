@@ -1,118 +1,68 @@
-import bluetooth
-import threading
-import time
+import socket
+from enum import Enum
+from ..UTILS.config import config_instance as config
+
+class Request(Enum):
+    HEALTHCHECK = "healthcheck"
+    READ_INFO = "read_info"
 
 class BluetoothServer:
 
 	def __init__(self):
-		self.server_sock = None
-		self.client_sock = None
-		self.is_connected = False
-		self.is_running = False
-		self.thread = None
-
-	def run(self):
-		"""Start the Bluetooth server in a separate thread"""
-		if self.is_running:
-			print("Bluetooth server is already running")
-			return
+		self.server = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
 		
-		self.thread = threading.Thread(target=self._start_server, daemon=True)
-		self.thread.start()
+		# Get configuration values
+		mac_address = config.get_bluetooth_mac_address()
+		channel = config.get_bluetooth_channel()
+		
+		self.server.bind((mac_address, channel))  # MAC Address and Channel from config
+		self.server.listen(1)
 
-	def _start_server(self):
-		"""Internal method to start the Bluetooth server"""
+		print("Waiting for bluetooth connection...")
+		self.client, self.addr = self.server.accept()
+		print(f"Accepted connection from {self.addr}")
+		self.handle_connection()
+
+
+	def generate_response(self, request: str) -> str:
+		msg = "No answer matched"
+		print(f"DEBUG: Comparing request '{request}' (length: {len(request)})")
+		print(f"DEBUG: HEALTHCHECK value: '{Request.HEALTHCHECK.value}' (length: {len(Request.HEALTHCHECK.value)})")
+		print(f"DEBUG: READ_INFO value: '{Request.READ_INFO.value}' (length: {len(Request.READ_INFO.value)})")
+		print(f"DEBUG: request == HEALTHCHECK: {request == Request.HEALTHCHECK.value}")
+		print(f"DEBUG: request == READ_info: {request == Request.READ_INFO.value}")
+		
+		if request == Request.HEALTHCHECK.value:
+			msg = "{'status': '1', 'message': 'Server is healthy'}"
+		elif request == Request.READ_INFO.value:
+			msg = "{'status': '1', 'message': 'Info was requested'}"
+		
+		return msg
+
+	def handle_connection(self):
+		buffer_size = config.get_buffer_size()
 		try:
-			print("Creating Bluetooth socket...")
-			self.server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+			while True:
+				data = self.client.recv(buffer_size)
+				if not data:
+					break
 
-			print("Binding to Bluetooth port...")
-			# Bind to any available Bluetooth adapter, and port 1 (commonly used)
-			self.server_sock.bind(("", bluetooth.PORT_ANY))
-			self.server_sock.listen(1)
+				request = data.decode('utf-8').strip()
+				print(f"Received request : {request}")
 
-			port = self.server_sock.getsockname()[1]
-			print(f"Successfully bound to port {port}")
+				answer = self.generate_response(request) 
 
-			print("Advertising Bluetooth service...")
-			# Make the service discoverable
-			try:
-				# Fix: Remove the profiles parameter that's causing the KeyError
-				bluetooth.advertise_service(
-					self.server_sock,
-					"OBD-Data-Server",
-					service_classes=[bluetooth.SERIAL_PORT_CLASS]
-				)
-				print("Service advertisement successful")
-			except Exception as adv_error:
-				print(f"Service advertisement failed: {adv_error}")
-				print("Trying minimal advertisement method...")
-				try:
-					# Alternative: minimal advertisement
-					bluetooth.advertise_service(
-						self.server_sock,
-						"OBD-Data-Server"
-					)
-					print("Minimal service advertisement successful")
-				except Exception as alt_error:
-					print(f"All advertisement methods failed: {alt_error}")
-					print("Continuing without service advertisement...")
-					# We can continue without advertising - clients can still connect if they know the address
+				self.client.send(answer.encode('utf-8'))
+				print(f"Sending answer : {answer}")
+		except OSError:
+			pass
 
-			print(f"Waiting for connection on RFCOMM channel {port}...")
-			self.is_running = True
-
-			self.client_sock, client_info = self.server_sock.accept()
-			print(f"Accepted connection from {client_info}")
-			self.is_connected = True
-
-		except KeyError as e:
-			print(f"Bluetooth KeyError: {e}")
-			print("This might be due to missing Bluetooth service constants")
-			print("Available constants in bluetooth module:")
-			try:
-				print(f"SERIAL_PORT_CLASS: {getattr(bluetooth, 'SERIAL_PORT_CLASS', 'NOT FOUND')}")
-				print(f"SERIAL_PORT_PROFILE: {getattr(bluetooth, 'SERIAL_PORT_PROFILE', 'NOT FOUND')}")
-			except:
-				pass
-			self.is_running = False
-		except Exception as e:
-			import errno
-			print(f"Bluetooth server error: {e}")
-			print(f"Error type: {type(e)}")
-			if hasattr(e, 'errno'):
-				print(f"Error number: {e.errno}")
-				print(f"Error description: {errno.errorcode.get(e.errno, 'Unknown')}")
-			self.is_running = False
-		
-	def send_data(self, data):
-		"""Send data to connected client"""
-		if self.is_connected and self.client_sock:
-			try:
-				message = str(data) + "\n"
-				self.client_sock.send(message.encode())
-				return True
-			except Exception as e:
-				print(f"Error sending data: {e}")
-				self.is_connected = False
-				return False
-		return False
+		print("Disconnected")
+		pass
+	
 
 	def close_connection(self):
-		"""Close the Bluetooth connection"""
-		self.is_running = False
-		self.is_connected = False
+		self.client.close()
+		self.server.close()
+		pass
 		
-		if self.client_sock:
-			try:
-				self.client_sock.close()
-			except:
-				pass
-		
-		if self.server_sock:
-			try:
-				self.server_sock.close()
-			except:
-				pass
-		
-		print("Bluetooth connection closed")
