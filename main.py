@@ -5,12 +5,13 @@ from src.MODELS.tools import DatabaseManager
 from src.GUI.Interface import OpenOBD_Interface
 from src.MODELS.tools import create_tables, DatabaseManager
 from src.API.BTInteractions import BluetoothServer
+from src.UTILS.config import config_instance as config
 
 # Initialize tables
 class OpenOBD:
     # Default configuration
-    custom_baudrate = 38400
-    custom_portstr = "/dev/pts/2"
+    custom_baudrate = config.get_obd_baudrate()
+    custom_portstr = config.get_obd_portstr()
 
     def __init__(self, portstr=custom_portstr, baudrate=custom_baudrate):
         available_ports = obd.scan_serial()
@@ -68,6 +69,4 @@ class OpenOBD:
         self.obd_connection.start()
         self.interface = OpenOBD_Interface(self.obd_connection)
 
-baudrate = 38400
-portstr = "/dev/pts/2"
-OpenOBD(portstr=portstr, baudrate=baudrate)
+OpenOBD()

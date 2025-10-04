@@ -14,7 +14,8 @@ class Config:
             raise FileNotFoundError(f"Config file not found at {config_path}")
         
         self.config.read(config_path)
-    
+
+
     # Bluetooth server configuration
     def get_bluetooth_mac_address(self):
         return self.config.get('Bluetooth server', 'mac_address')
@@ -27,7 +28,18 @@ class Config:
     
     def get_timeout(self):
         return self.config.getint('Bluetooth server', 'timeout')
-    
+
+
+
+    # OBD connection configuration
+    def get_obd_portstr(self):
+        return self.config.get('OBD connection', 'obd_portstr')
+
+    def get_obd_baudrate(self):
+        return self.config.getint('OBD connection', 'obd_baudrate')
+
+
+
     # Generic getter methods
     def get(self, section, key, fallback=None):
         return self.config.get(section, key, fallback=fallback)
