@@ -1,15 +1,14 @@
 import time
 import obd
-import sqlite3
 from src.MODELS.tools import DatabaseManager
-from src.GUI.Interface import OpenOBD_Interface
 from src.MODELS.tools import create_tables, DatabaseManager
 from src.API.BTInteractions import BluetoothServer
 from src.UTILS.config import config_instance as config
+from src.API.OBDManager import OBDManager
+import signal
+import sys
 
-# Initialize tables
 class OpenOBD:
-    # Default configuration
     custom_baudrate = config.get_obd_baudrate()
     custom_portstr = config.get_obd_portstr()
 
@@ -27,7 +26,7 @@ class OpenOBD:
         print("Trying to connect to OBD...")
         print("Port: ", self.custom_portstr)
         print("Baudrate: ", self.custom_baudrate)
-        self.obd_connection = obd.Async(portstr=self.custom_portstr, baudrate=self.custom_baudrate)
+        self.obd_connection = OBDManager(portstr=self.custom_portstr, baudrate=self.custom_baudrate)
 
     def init_database_connection(self):
         print("Trying to connect to database...")
@@ -35,7 +34,6 @@ class OpenOBD:
 
     def init_bluetooth_connection(self):
         self.bt_api = BluetoothServer()
-        self.bt_api._start_server()
 
     def startup(self):
         while not self.obd_connection:
@@ -60,13 +58,21 @@ class OpenOBD:
         create_tables()
 
         print("Connection established...")
-        self.obd_connection.watch(obd.commands.SPEED)
-        self.obd_connection.watch(obd.commands.RPM)
-        self.obd_connection.watch(obd.commands.FUEL_STATUS)
-        self.obd_connection.watch(obd.commands.COOLANT_TEMP)
-        self.obd_connection.watch(obd.commands.GET_DTC)
         
-        self.obd_connection.start()
-        self.interface = OpenOBD_Interface(self.obd_connection)
+    def shutdown(self):
+        print("Shutting down server...")
 
-OpenOBD()
+        print("Server shut down successfully.")
+
+    def run(self):
+        print("Server is running. Press Ctrl+C to stop.")
+        try:
+            while True:
+                time.sleep(1)  # Keeps the server running
+        except KeyboardInterrupt:
+            self.shutdown()
+
+# Gracefully handle Ctrl+C
+if __name__ == "__main__":
+    server = OpenOBD()
+    server.run()

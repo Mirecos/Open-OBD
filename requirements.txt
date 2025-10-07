@@ -1,3 +1,2 @@
-tk
-pyserial
 obd
+pyserial

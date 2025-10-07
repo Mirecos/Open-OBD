@@ -1,6 +1,8 @@
 import socket
 from enum import Enum
 from ..UTILS.config import config_instance as config
+from ..API.OBDManager import OBDManager
+import threading
 
 class Request(Enum):
     HEALTHCHECK = "healthcheck"
@@ -18,6 +20,14 @@ class BluetoothServer:
 		self.server.bind((mac_address, channel))  # MAC Address and Channel from config
 		self.server.listen(1)
 
+		self.client = None
+		self.addr = None
+		self.thread = threading.Thread(target=self.wait_for_connection)
+		self.thread.daemon = True  # Ensures the thread exits when the main program exits
+		self.thread.start()
+
+
+	def wait_for_connection(self):
 		print("Waiting for bluetooth connection...")
 		self.client, self.addr = self.server.accept()
 		print(f"Accepted connection from {self.addr}")
@@ -31,15 +41,18 @@ class BluetoothServer:
 		print(f"DEBUG: READ_INFO value: '{Request.READ_INFO.value}' (length: {len(Request.READ_INFO.value)})")
 		print(f"DEBUG: request == HEALTHCHECK: {request == Request.HEALTHCHECK.value}")
 		print(f"DEBUG: request == READ_info: {request == Request.READ_INFO.value}")
-		
+		fetcher = OBDManager()
+		res = fetcher.get_speed()
+		print(f"{res}")
 		if request == Request.HEALTHCHECK.value:
-			msg = "{'status': '1', 'message': 'Server is healthy'}"
+			msg = f"{{'status': '1', 'message': '{res}' }}"
 		elif request == Request.READ_INFO.value:
 			msg = "{'status': '1', 'message': 'Info was requested'}"
 		
 		return msg
 
 	def handle_connection(self):
+		print("Handling connection...")
 		buffer_size = config.get_buffer_size()
 		try:
 			while True:
@@ -62,7 +75,7 @@ class BluetoothServer:
 	
 
 	def close_connection(self):
-		self.client.close()
+		if self.client:
+			self.client.close()
 		self.server.close()
-		pass
-		
+		print("Bluetooth server closed.")
