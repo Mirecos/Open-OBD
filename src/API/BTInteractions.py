@@ -1,4 +1,9 @@
 import socket
+try:
+	import bluetooth  # PyBluez on Linux / BlueZ
+	HAVE_PYBLUEZ = True
+except Exception:
+	HAVE_PYBLUEZ = False
 from enum import Enum
 from ..UTILS.config import config_instance as config
 from ..API.OBDManager import OBDManager
@@ -11,14 +16,41 @@ class Request(Enum):
 class BluetoothServer:
 
 	def __init__(self):
-		self.server = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-		
 		# Get configuration values
 		mac_address = config.get_bluetooth_mac_address()
 		channel = config.get_bluetooth_channel()
-		
-		self.server.bind((mac_address, channel))  # MAC Address and Channel from config
-		self.server.listen(1)
+
+		if HAVE_PYBLUEZ:
+			# Use PyBluez to create an RFCOMM socket and advertise an SDP service with a UUID.
+			# On Raspberry Pi / BlueZ this will make the service discoverable with the given UUID.
+			self.server = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+			bind_addr = mac_address if mac_address else ""
+			self.server.bind((bind_addr, channel))
+			self.server.listen(1)
+
+			# Allow config to provide a UUID (optional). Fallback to a default 128-bit UUID.
+			get_uuid = getattr(config, "get_bluetooth_uuid", None)
+			service_uuid = get_uuid() if callable(get_uuid) else None
+			if not service_uuid:
+				service_uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
+
+			try:
+				bluetooth.advertise_service(
+					self.server,
+					"OpenOBDService",
+					service_id=service_uuid,
+					service_classes=[service_uuid, bluetooth.SERIAL_PORT_CLASS],
+					profiles=[bluetooth.SERIAL_PORT_PROFILE],
+				)
+				print(f"Advertised RFCOMM service UUID={service_uuid}")
+			except Exception as e:
+				print(f"Failed to advertise Bluetooth service: {e}")
+		else:
+			# Fallback to plain socket (may not advertise UUID/SDP)
+			self.server = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+			self.server.bind((mac_address, channel))
+			self.server.listen(1)
+			print("PyBluez not available; running without SDP advertisement")
 
 		self.client = None
 		self.addr = None
