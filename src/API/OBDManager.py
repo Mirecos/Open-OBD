@@ -64,15 +64,3 @@ class OBDManager:
         self.obd_connection.watch(obd.commands.GET_DTC)
         self.obd_connection.start()
 
-
-
-# from obd_manager import OBDManager
-# import time
-
-# def main():
-#     obd_mgr = OBDManager()  # Singleton instance
-#     while True:
-#         rpm = obd_mgr.get_rpm()
-#         speed = obd_mgr.get_speed()
-#         print(f"RPM: {rpm}, Speed: {speed}")
-#         time.sleep(2)

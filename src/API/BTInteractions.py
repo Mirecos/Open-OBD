@@ -2,6 +2,7 @@ import asyncio
 from enum import Enum
 from typing import Any, Union
 import sys
+from ..API.OBDManager import OBDManager 
 from ..UTILS.logger import Logger
 from ..UTILS.config import config_instance as config
 import threading
@@ -97,7 +98,8 @@ class BluetoothServer:
 		# Prepare response data
 		if not characteristic.value:
 			response_data = b"Hello from Car Doctor BLE Server"
-			characteristic.value = response_data
+			speed_data = str(OBDManager().get_speed())
+			characteristic.value = speed_data.encode('utf-8')
 			logger.debug("📖 No existing value, setting default response")
 		
 		try:
@@ -118,10 +120,11 @@ class BluetoothServer:
 		except:
 			logger.debug(f"✍️ Raw bytes: {value}")
 		
-		characteristic.value = value
+		speed_data = str(OBDManager().get_speed())
+		characteristic.value = speed_data.encode('utf-8')
 		logger.debug(f"✍️ Characteristic value updated to: {characteristic.value}")
 		
-		if characteristic.value == b"\x0f":
+		if value == b"\x0f":
 			logger.debug("🛑 SHUTDOWN TRIGGER received - stopping server")
 			self.shutdown()
 
