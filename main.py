@@ -1,12 +1,13 @@
 import time
 import obd
-from src.MODELS.tools import DatabaseManager
-from src.MODELS.tools import create_tables, DatabaseManager
+from src.API.DBManager import DatabaseManager
+from src.API.DBManager import create_tables, DatabaseManager
 from src.API.BTInteractions import BluetoothServer
 from src.UTILS.config import config_instance as config
 from src.API.OBDManager import OBDManager
-import signal
-import sys
+from src.UTILS.logger import Logger
+
+logger = Logger("Car Doctor")
 
 class OpenOBD:
     custom_baudrate = config.get_obd_baudrate()
@@ -14,7 +15,7 @@ class OpenOBD:
 
     def __init__(self, portstr=custom_portstr, baudrate=custom_baudrate):
         available_ports = obd.scan_serial()
-        print("Available ports: ", available_ports)
+        logger.info(f"Available ports: {available_ports}")
         self.custom_portstr = portstr
         self.custom_baudrate = baudrate
         self.obd_connection = None
@@ -23,13 +24,13 @@ class OpenOBD:
         self.startup()
 
     def init_obd_connection(self):
-        print("Trying to connect to OBD...")
-        print("Port: ", self.custom_portstr)
-        print("Baudrate: ", self.custom_baudrate)
+        logger.info("Trying to connect to OBD...")
+        logger.info(f"Port: {self.custom_portstr}")
+        logger.info(f"Baudrate: {self.custom_baudrate}")
         self.obd_connection = OBDManager(portstr=self.custom_portstr, baudrate=self.custom_baudrate)
 
     def init_database_connection(self):
-        print("Trying to connect to database...")
+        logger.info("Trying to connect to database...")
         self.db_connection = DatabaseManager.get_instance()
 
     def init_bluetooth_connection(self):
@@ -39,36 +40,46 @@ class OpenOBD:
         while not self.obd_connection:
             self.init_obd_connection()
             if not self.obd_connection:
-                print("Connection to OBD failed. Trying again in 5 seconds...")
+                logger.error("Connection to OBD failed. Trying again in 5 seconds...")
                 time.sleep(5)
             else:
-                print("Connected to OBD.")
+                logger.info("Connected to OBD.")
         
         while not self.db_connection:
             self.init_database_connection()
             if not self.db_connection:
-                print("Connection to DB failed. Trying again in 5 seconds...")
+                logger.error("Connection to DB failed. Trying again in 5 seconds...")
                 time.sleep(5)
             else:
-                print("Connected to DB.")
+                logger.info("Connected to DB.")
 
-        self.init_bluetooth_connection()  # Initialize Bluetooth server
+        while not self.bt_api:
+            self.init_bluetooth_connection()
+            if not self.bt_api:
+                logger.error("Connection to Bluetooth API failed. Trying again in 5 seconds...")
+                time.sleep(5)
+            else:
+                logger.info("Connected to Bluetooth API.")
 
         # Use the create_tables function from your import
         create_tables()
 
-        print("Connection established...")
-        
-    def shutdown(self):
-        print("Shutting down server...")
+        logger.info("Connection established...")
 
-        print("Server shut down successfully.")
+
+    async def shutdown(self):
+        logger.info("Shutting down server...")
+        # Bluetooth
+        await self.bt_api.shutdown()
+        logger.info("Server shut down successfully.")
+
 
     def run(self):
-        print("Server is running. Press Ctrl+C to stop.")
+        logger.info("Server is running. Press Ctrl+C to stop.")
         try:
             while True:
-                time.sleep(1)  # Keeps the server running
+                logger.info("Running")
+                time.sleep(1)
         except KeyboardInterrupt:
             self.shutdown()
 

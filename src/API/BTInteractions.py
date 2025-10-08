@@ -1,13 +1,26 @@
-import socket
-try:
-	import bluetooth  # PyBluez on Linux / BlueZ
-	HAVE_PYBLUEZ = True
-except Exception:
-	HAVE_PYBLUEZ = False
+import asyncio
 from enum import Enum
+from typing import Any, Union
+import sys
+from ..UTILS.logger import Logger
 from ..UTILS.config import config_instance as config
-from ..API.OBDManager import OBDManager
 import threading
+from bless import (  # type: ignore
+    BlessServer,
+    BlessGATTCharacteristic,
+    GATTCharacteristicProperties,
+    GATTAttributePermissions,
+)
+
+logger = Logger("Bluetooth Server")
+
+# NOTE: Some systems require different synchronization methods.
+trigger: Union[asyncio.Event, threading.Event]
+if sys.platform in ["darwin", "win32"]:
+    trigger = threading.Event()
+else:
+    trigger = asyncio.Event()
+
 
 class Request(Enum):
     HEALTHCHECK = "healthcheck"
@@ -16,98 +29,105 @@ class Request(Enum):
 class BluetoothServer:
 
 	def __init__(self):
-		# Get configuration values
-		mac_address = config.get_bluetooth_mac_address()
-		channel = config.get_bluetooth_channel()
-
-		if HAVE_PYBLUEZ:
-			# Use PyBluez to create an RFCOMM socket and advertise an SDP service with a UUID.
-			# On Raspberry Pi / BlueZ this will make the service discoverable with the given UUID.
-			self.server = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-			bind_addr = mac_address if mac_address else ""
-			self.server.bind((bind_addr, channel))
-			self.server.listen(1)
-
-			# Allow config to provide a UUID (optional). Fallback to a default 128-bit UUID.
-			get_uuid = getattr(config, "get_bluetooth_uuid", None)
-			service_uuid = get_uuid() if callable(get_uuid) else None
-			if not service_uuid:
-				service_uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
-
-			try:
-				bluetooth.advertise_service(
-					self.server,
-					"OpenOBDService",
-					service_id=service_uuid,
-					service_classes=[service_uuid, bluetooth.SERIAL_PORT_CLASS],
-					profiles=[bluetooth.SERIAL_PORT_PROFILE],
-				)
-				print(f"Advertised RFCOMM service UUID={service_uuid}")
-			except Exception as e:
-				print(f"Failed to advertise Bluetooth service: {e}")
-		else:
-			# Fallback to plain socket (may not advertise UUID/SDP)
-			self.server = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-			self.server.bind((mac_address, channel))
-			self.server.listen(1)
-			print("PyBluez not available; running without SDP advertisement")
-
-		self.client = None
-		self.addr = None
-		self.thread = threading.Thread(target=self.wait_for_connection)
-		self.thread.daemon = True  # Ensures the thread exits when the main program exits
+		self.server_name = config.get_bluetooth_server_name()
+		self.service_uuid = config.get_bluetooth_service_uuid()
+		self.char_uuid = config.get_bluetooth_char_uuid()
+		
+		self.server = None
+		self.running = False
+		
+		# Start daemon thread
+		self.thread = threading.Thread(target=self._run_daemon)
+		self.thread.daemon = True
 		self.thread.start()
 
-
-	def wait_for_connection(self):
-		print("Waiting for bluetooth connection...")
-		self.client, self.addr = self.server.accept()
-		print(f"Accepted connection from {self.addr}")
-		self.handle_connection()
-
-
-	def generate_response(self, request: str) -> str:
-		msg = "No answer matched"
-		print(f"DEBUG: Comparing request '{request}' (length: {len(request)})")
-		print(f"DEBUG: HEALTHCHECK value: '{Request.HEALTHCHECK.value}' (length: {len(Request.HEALTHCHECK.value)})")
-		print(f"DEBUG: READ_INFO value: '{Request.READ_INFO.value}' (length: {len(Request.READ_INFO.value)})")
-		print(f"DEBUG: request == HEALTHCHECK: {request == Request.HEALTHCHECK.value}")
-		print(f"DEBUG: request == READ_info: {request == Request.READ_INFO.value}")
-		fetcher = OBDManager()
-		res = fetcher.get_speed()
-		print(f"{res}")
-		if request == Request.HEALTHCHECK.value:
-			msg = f"{{'status': '1', 'message': '{res}' }}"
-		elif request == Request.READ_INFO.value:
-			msg = "{'status': '1', 'message': 'Info was requested'}"
+	def _run_daemon(self):
+		"""Run the BLE server in daemon thread"""
+		loop = asyncio.new_event_loop()
+		asyncio.set_event_loop(loop)
 		
-		return msg
-
-	def handle_connection(self):
-		print("Handling connection...")
-		buffer_size = config.get_buffer_size()
 		try:
-			while True:
-				data = self.client.recv(buffer_size)
-				if not data:
-					break
-
-				request = data.decode('utf-8').strip()
-				print(f"Received request : {request}")
-
-				answer = self.generate_response(request) 
-
-				self.client.send(answer.encode('utf-8'))
-				print(f"Sending answer : {answer}")
-		except OSError:
-			pass
-
-		print("Disconnected")
-		pass
+			loop.run_until_complete(self.run(loop))
+		except Exception as e:
+			logger.error(f"Daemon error: {e}")
+		finally:
+			loop.close()
 	
 
-	def close_connection(self):
-		if self.client:
-			self.client.close()
-		self.server.close()
-		print("Bluetooth server closed.")
+	async def run(self, loop):
+		# Instantiate the server
+		self.server = BlessServer(name=self.server_name, loop=loop)
+		self.server.read_request_func = self.read_request
+		self.server.write_request_func = self.write_request
+		logger.debug("✅ BLE Server instance created")
+		
+		# Add Service
+		await self.server.add_new_service(self.service_uuid)
+		logger.debug(f"✅ BLE Service added: {self.service_uuid}")
+		
+
+		# Add a Characteristic to the service
+		char_flags = (
+			GATTCharacteristicProperties.read
+			| GATTCharacteristicProperties.write
+			| GATTCharacteristicProperties.indicate
+		)
+		permissions = GATTAttributePermissions.readable | GATTAttributePermissions.writeable
+		await self.server.add_new_characteristic(
+			self.service_uuid, self.char_uuid, char_flags, None, permissions
+		)
+		logger.debug(f"✅ BLE Characteristic added: {self.char_uuid}")
+		await self.server.start()
+
+		logger.debug("📡 BLE Server started - now advertising")
+		logger.debug(f"🔗 Server 'Car Doctor' is ready for connections!")
+		logger.debug(f"📝 Service UUID: {self.service_uuid}")
+		logger.debug(f"📝 Characteristic UUID: {self.char_uuid}")
+		logger.debug(f"💡 Write '0xF' to the advertised characteristic to stop server")
+
+		# Keep server running until stopped
+		while self.running:
+			await asyncio.sleep(1)
+		
+
+
+	def read_request(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
+		logger.debug("📖 BLE READ REQUEST received from client")
+		
+		# Prepare response data
+		if not characteristic.value:
+			response_data = b"Hello from Car Doctor BLE Server"
+			characteristic.value = response_data
+			logger.debug("📖 No existing value, setting default response")
+		
+		try:
+			decoded_response = characteristic.value.decode('utf-8') if isinstance(characteristic.value, (bytes, bytearray)) else str(characteristic.value)
+			logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
+		except:
+			logger.debug(f"📤 SENDING RAW BYTES to client: {characteristic.value}")
+
+		return characteristic.value
+
+
+	def write_request(self, characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
+		logger.debug("✍️ BLE WRITE REQUEST received from client")
+		logger.debug(f"✍️ Received data: {value}")
+		try:
+			decoded_value = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+			logger.debug(f"✍️ Decoded message: '{decoded_value}'")
+		except:
+			logger.debug(f"✍️ Raw bytes: {value}")
+		
+		characteristic.value = value
+		logger.debug(f"✍️ Characteristic value updated to: {characteristic.value}")
+		
+		if characteristic.value == b"\x0f":
+			logger.debug("🛑 SHUTDOWN TRIGGER received - stopping server")
+			self.shutdown()
+
+	def shutdown(self):
+		"""Stop the daemon server"""
+		logger.debug("🛑 Stopping BLE daemon server...")
+		self.running = False
+
+

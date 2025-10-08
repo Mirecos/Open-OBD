@@ -1,2 +1,10 @@
 obd
 pyserial
+bleak
+
+bleak_winrt
+#Python 3.9 required for bleak_winrt
+bleak<1.0.0
+bless
+
+# Ajouter cette library : pip install git+https://github.com/gwangyi/pysetupdi

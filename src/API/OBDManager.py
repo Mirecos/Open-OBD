@@ -1,5 +1,8 @@
 import obd
 import threading
+from ..UTILS.logger import Logger
+
+logger = Logger("OBD Manager")
 
 class OBDManager:
     _instance = None
@@ -16,25 +19,28 @@ class OBDManager:
     def _init_connection(self, portstr, baudrate):
         self.port = portstr
         self.baudrate = baudrate
-        print(f"[OBD Service] Connecting to {self.port or 'auto'}...")
+        logger.debug(f"Initializing OBD connection on port: {self.port or 'auto'} with baudrate: {self.baudrate or 'default'}")
         try:
             self.obd_connection = obd.Async(portstr=self.port, baudrate=self.baudrate)
-            print(self.obd_connection)
+            if not self.obd_connection.is_connected():
+                logger.error("❌ OBD connection failed")
+                raise Exception("OBD connection failed")
+            logger.debug("✅ OBD connection established")
         except Exception as e:
-            print(f"[OBD Service] Connection error: {e}")
+            logger.error(f"Connection error: {e}")
             self.connection = None
         self.main()
 
 
     def query(self, cmd):
         if not self.obd_connection:
-            print("[OBD Service] : OBD manager was not initialized.")
+            logger.error("OBD manager was not initialized.")
             return None
         try:
             response = self.obd_connection.query(cmd)
             return response.value
         except Exception as e:
-            print(f"[OBD Service] Query failed: {e}")
+            logger.error(f"Query failed: {e}")
             return None
 
 

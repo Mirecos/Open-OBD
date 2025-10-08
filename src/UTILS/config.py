@@ -29,7 +29,15 @@ class Config:
     def get_timeout(self):
         return self.config.getint('Bluetooth server', 'timeout')
 
+    # Bluetooth server configuration
+    def get_bluetooth_server_name(self):
+        return self.config.get('Bluetooth server', 'server_name')
 
+    def get_bluetooth_service_uuid(self):
+        return self.config.get('Bluetooth server', 'service_uuid')
+
+    def get_bluetooth_char_uuid(self):
+        return self.config.get('Bluetooth server', 'char_uuid')
 
     # OBD connection configuration
     def get_obd_portstr(self):
