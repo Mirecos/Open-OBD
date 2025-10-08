@@ -1,8 +1,8 @@
-[bluetooth]
-# Replace with your Bluetooth adapter's MAC address
-mac_address = YOUR_MAC_ADDRESS_HERE
-channel = 4
+[Bluetooth server]
+server_name = Car Doctor
+service_uuid =
+char_uuid =
 
-[server]
-buffer_size = 1024
-timeout = 30
+[OBD connection]
+obd_portstr =
+obd_baudrate =

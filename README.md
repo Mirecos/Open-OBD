@@ -10,18 +10,21 @@ Open-OBD doesn't have a lot of requirements. First of all, make sure to install 
 
 In order to make the app work without plugging into a real car, you can install an **ELM-327** to simulate an OBD II connection. The way to go is the [**ELM-327 Python library**](https://github.com/Ircama/ELM327-emulator).
 
-For **Windows installation**: You'll need to install *com0com* software and create a port pair (e.g., 'COM5' to 'COM6'). Then, you'll connect to one of the ports from the emulator, and the other with the Python app.
+For **Windows installation**: You'll need to install *com0com* software and create a port pair (e.g., 'COM3' to 'COM4'). Then, you'll connect to one of the ports from the emulator, and the other with the Python app.
 
 Once done, you can install the emulator:
 
 ```
 $ pip install git+https://github.com/ircama/ELM327-emulator
 $ python -m elm -p ${YOUR_SPECIFIED_COM_PORT}
+$ python -m elm -p COM3
 ```
 
 ### **Python App Installation**
 
 To download and run the code (*only if Python is already installed*):
+
+NB : Dont forget to fille copy config.ini.template to config.ini, and fill it with values.
 ```
 $ git clone https://github.com/Mirecos/Open-OBD/
 $ python -m venv venv

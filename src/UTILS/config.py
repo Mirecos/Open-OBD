@@ -17,19 +17,6 @@ class Config:
 
 
     # Bluetooth server configuration
-    def get_bluetooth_mac_address(self):
-        return self.config.get('Bluetooth server', 'mac_address')
-    
-    def get_bluetooth_channel(self):
-        return self.config.getint('Bluetooth server', 'channel')
-    
-    def get_buffer_size(self):
-        return self.config.getint('Bluetooth server', 'buffer_size')
-    
-    def get_timeout(self):
-        return self.config.getint('Bluetooth server', 'timeout')
-
-    # Bluetooth server configuration
     def get_bluetooth_server_name(self):
         return self.config.get('Bluetooth server', 'server_name')
 
@@ -45,7 +32,6 @@ class Config:
 
     def get_obd_baudrate(self):
         return self.config.getint('OBD connection', 'obd_baudrate')
-
 
 
     # Generic getter methods
