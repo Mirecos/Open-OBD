@@ -1,6 +1,7 @@
 import obd
 import threading
 from ..UTILS.logger import Logger
+import json
 
 logger = Logger("OBD Manager")
 
@@ -55,6 +56,20 @@ class OBDManager:
 
     def get_throttle_pos(self):
         return self.query(obd.commands.THROTTLE_POS)
+    
+    def get_dtc(self):
+        dtcs = self.query(obd.commands.GET_DTC)
+        if not dtcs:
+            return json.dumps([])
+        
+        dtc_list = []
+        for code, desc in dtcs:
+            dtc_list.append({
+                "code": str(code),
+                "description": str(desc)
+            })
+        
+        return json.dumps(dtc_list) 
 
     def main(self):
         self.obd_connection.watch(obd.commands.SPEED)
