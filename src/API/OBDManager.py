@@ -4,6 +4,8 @@ from ..UTILS.logger import Logger
 import json
 import time
 
+obd.logger.setLevel(obd.logging.DEBUG)  # Suppress obd library logs
+
 logger = Logger("OBD Manager")
 
 class OBDManager:
@@ -23,7 +25,6 @@ class OBDManager:
         self.baudrate = baudrate
         logger.debug(f"Initializing OBD connection on port: {self.port or 'auto'} with baudrate: {self.baudrate or 'default'}")
         try:
-            time.sleep(5)
             self.obd_connection = obd.Async(portstr=self.port, baudrate=self.baudrate)
             if not self.obd_connection.is_connected():
                 logger.error("❌ OBD connection failed")
@@ -74,10 +75,5 @@ class OBDManager:
         return json.dumps(dtc_list) 
 
     def main(self):
-        self.obd_connection.watch(obd.commands.SPEED)
-        self.obd_connection.watch(obd.commands.RPM)
-        self.obd_connection.watch(obd.commands.FUEL_STATUS)
-        self.obd_connection.watch(obd.commands.COOLANT_TEMP)
-        self.obd_connection.watch(obd.commands.GET_DTC)
         self.obd_connection.start()
 

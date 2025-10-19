@@ -30,8 +30,8 @@ class Config:
     def get_obd_portstr(self):
         return self.config.get('OBD connection', 'obd_portstr')
 
-    def get_obd_baudrate(self):
-        return self.config.getint('OBD connection', 'obd_baudrate')
+    def get_obd_baudrate(self, fallback=None):
+        return self.config.getint('OBD connection', 'obd_baudrate', fallback=fallback)
 
 
     # Generic getter methods
