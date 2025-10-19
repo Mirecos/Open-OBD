@@ -2,6 +2,7 @@ import obd
 import threading
 from ..UTILS.logger import Logger
 import json
+import time
 
 logger = Logger("OBD Manager")
 
@@ -22,6 +23,7 @@ class OBDManager:
         self.baudrate = baudrate
         logger.debug(f"Initializing OBD connection on port: {self.port or 'auto'} with baudrate: {self.baudrate or 'default'}")
         try:
+            time.sleep(5)
             self.obd_connection = obd.Async(portstr=self.port, baudrate=self.baudrate)
             if not self.obd_connection.is_connected():
                 logger.error("❌ OBD connection failed")
