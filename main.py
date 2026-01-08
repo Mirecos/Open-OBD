@@ -76,11 +76,37 @@ class OpenOBD:
 
     def run(self):
         logger.info("Server is running. Press Ctrl+C to stop.")
+
+        logger.info("Starting new session in database...")
+        DatabaseManager.get_instance().start_session()
+        logger.info("Session started.")
+
         try:
             while True:
                 logger.info("Running")
-                time.sleep(1)
+                speed = self.obd_connection.get_speed()
+                print(f"Speed: {speed}")
+                rpm = self.obd_connection.get_rpm()
+                print(f"RPM: {rpm}")
+                coolant_temp = self.obd_connection.get_coolant_temp()
+                print(f"Coolant Temp: {coolant_temp}")
+                fuel_status = self.obd_connection.get_fuel_status()
+                print(f"Fuel Status: {fuel_status}")
+                dtc = self.obd_connection.get_dtc()
+                print(f"DTC: {dtc}")
+
+                DatabaseManager.get_instance().insert_reading(
+                    speed=speed,
+                    rpm=rpm,
+                    coolant_temp=coolant_temp,
+                    fuel_status=fuel_status,
+                    dtc=dtc
+                )
+
+                time.sleep(5)
         except KeyboardInterrupt:
+            logger.info("Ctrl+C detected. Shutting down...")
+            DatabaseManager.get_instance().end_session()
             self.shutdown()
 
 # Gracefully handle Ctrl+C

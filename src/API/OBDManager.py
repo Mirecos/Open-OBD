@@ -49,16 +49,24 @@ class OBDManager:
 
 
     def get_speed(self):
-        return self.query(obd.commands.SPEED)
+        value = self.query(obd.commands.SPEED)
+        return float(value.magnitude) if value is not None else 0.0
 
     def get_rpm(self):
-        return self.query(obd.commands.RPM)
+        value = self.query(obd.commands.RPM)
+        return float(value.magnitude) if value is not None else 0.0
 
     def get_coolant_temp(self):
-        return self.query(obd.commands.COOLANT_TEMP)
+        value = self.query(obd.commands.COOLANT_TEMP)
+        return float(value.magnitude) if value is not None else 0.0
+
+    def get_fuel_status(self):
+        value = self.query(obd.commands.FUEL_STATUS)
+        return str(value) if value is not None else None
 
     def get_throttle_pos(self):
-        return self.query(obd.commands.THROTTLE_POS)
+        value = self.query(obd.commands.THROTTLE_POS)
+        return float(value.magnitude) if value is not None else 0.0
     
     def get_dtc(self):
         dtcs = self.query(obd.commands.GET_DTC)
@@ -75,5 +83,11 @@ class OBDManager:
         return json.dumps(dtc_list) 
 
     def main(self):
+        self.obd_connection.watch(obd.commands.SPEED)
+        self.obd_connection.watch(obd.commands.RPM)
+        self.obd_connection.watch(obd.commands.COOLANT_TEMP)
+        self.obd_connection.watch(obd.commands.FUEL_STATUS)
+        self.obd_connection.watch(obd.commands.THROTTLE_POS)
+        self.obd_connection.watch(obd.commands.GET_DTC)
         self.obd_connection.start()
 
