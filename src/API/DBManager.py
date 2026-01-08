@@ -121,6 +121,21 @@ class DatabaseManager:
             except sqlite3.Error as e:
                 logger.error(f"Error inserting reading: {e}")
 
+        def fetch_current_session(self):
+            """Fetch the current active session details"""
+            try:
+                if self.session_id is None:
+                    logger.warning("No active session to fetch")
+                    return None
+                self.cursor.execute('''
+                    SELECT * FROM readings WHERE session_id = ?
+                ''', (self.session_id,))
+                session = self.cursor.fetchone()
+                return session
+            except sqlite3.Error as e:
+                logger.error(f"Error fetching current session: {e}")
+                return None
+
 # Function to initialize database tables
 def create_tables():
     """Initialize database tables - standalone function for easy import"""

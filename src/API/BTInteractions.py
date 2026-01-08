@@ -32,7 +32,8 @@ class Request(Enum):
     GET_COOLANT_TEMP = "get_coolant_temp"
     GET_THROTTLE_POSITION = "get_throttle_position"
     GET_DTC = "get_dtc"
-	
+    GET_CURRENT_DRIVING_SESSION = "get_current_driving_session"
+
 
 
 class BluetoothServer:
@@ -159,6 +160,18 @@ class BluetoothServer:
 			case Request.GET_DTC.value:
 				dtc_data = str(OBDManager().get_dtc())
 				return self.generate_response(True, dtc_data, "Fetched current DTC.")
+			case Request.GET_CURRENT_DRIVING_SESSION.value:
+				from .DBManager import DatabaseManager
+				db_instance = DatabaseManager.get_instance()
+				if db_instance.session_id is None:
+					return self.generate_response(False, {}, "No active driving session.")
+				else:
+					session_readings = db_instance.fetch_current_session()
+					session_data = {
+						"session_id": db_instance.session_id,
+						"readings": session_readings
+					}
+					return self.generate_response(True, session_data, "Fetched current driving session.")
 
 		return self.generate_response(False, {}, "Unknown request")
 
