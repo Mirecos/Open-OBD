@@ -135,7 +135,7 @@ class BluetoothServer:
 			logger.error(f"✍️ Failed to update characteristic value: {e}")
 
 
-	async def read_request(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
+	def read_request(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
 		logger.debug("📖 BLE READ REQUEST received from client")
 
 		try:
