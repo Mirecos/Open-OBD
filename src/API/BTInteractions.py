@@ -102,7 +102,7 @@ class BluetoothServer:
 
 
 	async def write_request(self, characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
-		logger.debug(f"✍️ BLE WRITE REQUEST received :  Received request : {value}")
+		logger.debug(f"✍️ BLE WRITE REQUEST received: {value}")
 		response = None
 		try:
 			# Handle both bytes and bytearray
@@ -125,8 +125,11 @@ class BluetoothServer:
 			response = self.generate_response(False, {}, "Failed to decode request")
 
 		# Encode the response string to bytes for BLE characteristic
-		characteristic.value = response.encode('utf-8')
-		logger.debug(f"✍️ Characteristic value updated to: {characteristic.value}")
+		try:
+			characteristic.value = response.encode('utf-8')
+			logger.debug(f"✍️ Characteristic value updated to: {characteristic.value}")
+		except Exception as e:
+			logger.error(f"✍️ Failed to update characteristic value: {e}")
 
 
 	async def read_request(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
