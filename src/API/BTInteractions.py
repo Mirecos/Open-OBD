@@ -195,9 +195,11 @@ class BluetoothServer:
 						}
 						response = self.generate_response(True, session_data, "Fetched current driving session.")
 			print("Response generated:", response)
+			return response
 		except Exception as e:
 			logger.error(f"Error handling request '{request}': {e}")
 			response = self.generate_response(False, {}, f"Error processing request: {e}")
+			return "error"
 
 	def shutdown(self):
 		"""Stop the daemon server"""
