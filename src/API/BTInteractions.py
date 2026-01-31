@@ -96,6 +96,7 @@ class BluetoothServer:
 		logger.debug(f"📝 Characteristic UUID: {self.char_uuid}")
 		logger.debug(f"💡 Write '0xF' to the advertised characteristic to stop server")
 
+		self.running = True
 		# Keep server running until stopped
 		while self.running:
 			logger.debug("🔄 BLE Server running...")
