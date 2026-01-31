@@ -152,41 +152,45 @@ class BluetoothServer:
 		}, separators=(',', ':'))
 
 	def handle_request(self, request: str) -> Any:
-		print("Handling request:", str(request))
-		response = None  # Initialize the response object
+		try:
+				
+			print("Handling request:", str(request))
+			response = None  # Initialize the response object
 
-		match str(request):
-			case Request.HEALTHCHECK.value:
-				response = self.generate_response(True, {}, "Server is healthy !")
-			case Request.GET_SPEED.value:
-				speed_data = str(OBDManager().get_speed())
-				response = self.generate_response(True, speed_data, "Fetched current speed.")
-			case Request.GET_RPM.value:
-				rpm_data = str(OBDManager().get_rpm())
-				response = self.generate_response(True, rpm_data, "Fetched current RPM.")
-			case Request.GET_COOLANT_TEMP.value:
-				coolant_temp_data = str(OBDManager().get_coolant_temp())
-				response = self.generate_response(True, coolant_temp_data, "Fetched current coolant temperature.")
-			case Request.GET_THROTTLE_POSITION.value:
-				throttle_position_data = str(OBDManager().get_throttle_pos())
-				response = self.generate_response(True, throttle_position_data, "Fetched current throttle position.")
-			case Request.GET_DTC.value:
-				dtc_data = str(OBDManager().get_dtc())
-				response = self.generate_response(True, dtc_data, "Fetched current DTC.")
-			case Request.GET_CURRENT_DRIVING_SESSION.value:
-				from .DBManager import DatabaseManager
-				db_instance = DatabaseManager.get_instance()
-				if db_instance.session_id is None:
-					response = self.generate_response(False, {}, "No active driving session.")
-				else:
-					session_readings = db_instance.fetch_current_session()
-					session_data = {
-						"session_id": db_instance.session_id,
-						"readings": session_readings
-					}
-					response = self.generate_response(True, session_data, "Fetched current driving session.")
-		print("Response generated:", response)
-
+			match str(request):
+				case Request.HEALTHCHECK.value:
+					response = self.generate_response(True, {}, "Server is healthy !")
+				case Request.GET_SPEED.value:
+					speed_data = str(OBDManager().get_speed())
+					response = self.generate_response(True, speed_data, "Fetched current speed.")
+				case Request.GET_RPM.value:
+					rpm_data = str(OBDManager().get_rpm())
+					response = self.generate_response(True, rpm_data, "Fetched current RPM.")
+				case Request.GET_COOLANT_TEMP.value:
+					coolant_temp_data = str(OBDManager().get_coolant_temp())
+					response = self.generate_response(True, coolant_temp_data, "Fetched current coolant temperature.")
+				case Request.GET_THROTTLE_POSITION.value:
+					throttle_position_data = str(OBDManager().get_throttle_pos())
+					response = self.generate_response(True, throttle_position_data, "Fetched current throttle position.")
+				case Request.GET_DTC.value:
+					dtc_data = str(OBDManager().get_dtc())
+					response = self.generate_response(True, dtc_data, "Fetched current DTC.")
+				case Request.GET_CURRENT_DRIVING_SESSION.value:
+					from .DBManager import DatabaseManager
+					db_instance = DatabaseManager.get_instance()
+					if db_instance.session_id is None:
+						response = self.generate_response(False, {}, "No active driving session.")
+					else:
+						session_readings = db_instance.fetch_current_session()
+						session_data = {
+							"session_id": db_instance.session_id,
+							"readings": session_readings
+						}
+						response = self.generate_response(True, session_data, "Fetched current driving session.")
+			print("Response generated:", response)
+		except Exception as e:
+			logger.error(f"Error handling request '{request}': {e}")
+			response = self.generate_response(False, {}, f"Error processing request: {e}")
 
 	def shutdown(self):
 		"""Stop the daemon server"""
