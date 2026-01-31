@@ -11,6 +11,7 @@ logger = Logger("OBD Manager")
 class OBDManager:
     _instance = None
     _lock = threading.Lock()
+    obd_connection = None
 
     def __new__(cls, portstr=None, baudrate=None):
         with cls._lock:
@@ -37,7 +38,7 @@ class OBDManager:
 
 
     def query(self, cmd):
-        if not self.obd_connection:
+        if self.obd_connection is None:
             logger.error("OBD manager was not initialized.")
             return None
         try:
