@@ -14,7 +14,8 @@ from bless import (  # type: ignore
     GATTAttributePermissions,
 )
 import json
-
+import logging
+logging.getLogger('bless').setLevel(logging.DEBUG)
 logger = Logger("Bluetooth Server")
 
 # NOTE: Some systems require different synchronization methods.
@@ -97,6 +98,7 @@ class BluetoothServer:
 
 		# Keep server running until stopped
 		while self.running:
+			logger.debug("🔄 BLE Server running...")
 			await asyncio.sleep(1)
 		
 
