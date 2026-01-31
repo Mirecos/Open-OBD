@@ -101,19 +101,7 @@ class BluetoothServer:
 		
 
 
-	def read_request(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
-		logger.debug("📖 BLE READ REQUEST received from client")
-
-		try:
-			decoded_response = characteristic.value.decode('utf-8') if isinstance(characteristic.value, (bytes, bytearray)) else str(characteristic.value)
-			logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
-		except:
-			logger.debug(f"📤 SENDING RAW BYTES to client: {characteristic.value}")
-
-		return characteristic.value
-
-
-	def write_request(self, characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
+	async def write_request(self, characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
 		logger.debug(f"✍️ BLE WRITE REQUEST received :  Received request : {value}")
 		response = None
 		try:
@@ -123,14 +111,37 @@ class BluetoothServer:
 			else:
 				decoded_value = str(value)
 			logger.debug(f"✍️ Decoded request: '{decoded_value}'")
+
+			# Handle the request and generate a response
 			response = self.handle_request(decoded_value)
+
+			# Ensure the response size is within BLE characteristic limits (512 bytes)
+			if len(response.encode('utf-8')) > 512:
+				logger.error("Response size exceeds BLE characteristic limit (512 bytes). Truncating response.")
+				response = response[:512]  # Truncate response to fit the limit
+
 		except Exception as e:
 			logger.error(f"✍️ Failed to decode request: {e}")
 			response = self.generate_response(False, {}, "Failed to decode request")
-		
+
 		# Encode the response string to bytes for BLE characteristic
 		characteristic.value = response.encode('utf-8')
 		logger.debug(f"✍️ Characteristic value updated to: {characteristic.value}")
+
+
+	async def read_request(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
+		logger.debug("📖 BLE READ REQUEST received from client")
+
+		try:
+			# Ensure thread-safe access to characteristic value
+			async with asyncio.Lock():
+				decoded_response = characteristic.value.decode('utf-8') if isinstance(characteristic.value, (bytes, bytearray)) else str(characteristic.value)
+				logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
+		except Exception as e:
+			logger.error(f"📤 Failed to decode characteristic value: {e}")
+			return bytearray()
+
+		return characteristic.value
 
 
 	def generate_response(self, success: bool, data: Any, message: str = None) -> Any:
