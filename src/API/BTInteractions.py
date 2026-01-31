@@ -139,20 +139,13 @@ class BluetoothServer:
 		logger.debug("📖 BLE READ REQUEST received from client")
 
 		try:
-			# Ensure thread-safe access to characteristic value
-			loop = asyncio.get_event_loop()
-
-			async def read_characteristic():
-				async with asyncio.Lock():
-					if isinstance(characteristic.value, (bytes, bytearray)):
-						decoded_response = characteristic.value.decode('utf-8')
-					else:
-						decoded_response = str(characteristic.value)
-					logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
-				return characteristic.value
-
-			# Run the async code synchronously
-			return loop.run_until_complete(read_characteristic())
+			# Ensure the characteristic value is a bytearray or bytes
+			if isinstance(characteristic.value, (bytes, bytearray)):
+				decoded_response = characteristic.value.decode('utf-8')
+			else:
+				decoded_response = str(characteristic.value)
+			logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
+			return characteristic.value
 		except Exception as e:
 			logger.error(f"📤 Failed to decode characteristic value: {e}")
 			return bytearray()
