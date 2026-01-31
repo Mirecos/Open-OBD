@@ -104,7 +104,7 @@ class BluetoothServer:
 		
 
 
-	async def write_request(self, characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
+	def write_request(self, characteristic: BlessGATTCharacteristic, value: Any, **kwargs):
 		logger.debug(f"✍️ BLE WRITE REQUEST received: {value}")
 		response = None
 		try:
@@ -140,14 +140,22 @@ class BluetoothServer:
 
 		try:
 			# Ensure thread-safe access to characteristic value
-			async with asyncio.Lock():
-				decoded_response = characteristic.value.decode('utf-8') if isinstance(characteristic.value, (bytes, bytearray)) else str(characteristic.value)
-				logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
+			loop = asyncio.get_event_loop()
+
+			async def read_characteristic():
+				async with asyncio.Lock():
+					if isinstance(characteristic.value, (bytes, bytearray)):
+						decoded_response = characteristic.value.decode('utf-8')
+					else:
+						decoded_response = str(characteristic.value)
+					logger.debug(f"📤 SENDING RESPONSE to client: '{decoded_response}'")
+				return characteristic.value
+
+			# Run the async code synchronously
+			return loop.run_until_complete(read_characteristic())
 		except Exception as e:
 			logger.error(f"📤 Failed to decode characteristic value: {e}")
 			return bytearray()
-
-		return characteristic.value
 
 
 	def generate_response(self, success: bool, data: Any, message: str = None) -> Any:
