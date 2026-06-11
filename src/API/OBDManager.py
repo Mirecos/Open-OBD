@@ -4,7 +4,7 @@ from ..UTILS.logger import Logger
 import json
 import time
 
-obd.logger.setLevel(obd.logging.DEBUG)  # Suppress obd library logs
+obd.logger.setLevel(obd.logging.FATAL)  # Suppress obd library logs
 
 logger = Logger("OBD Manager")
 
@@ -12,6 +12,19 @@ class OBDManager:
     _instance = None
     _lock = threading.Lock()
     obd_connection = None
+
+    # Mode 01 PIDs polled for the realtime dashboard. Each entry maps the key
+    # exposed in get_realtime_data()'s response to the corresponding OBD
+    # command. Values are reported in the units defined by the OBD-II
+    # standard (km/h, rpm, °C, %).
+    REALTIME_COMMANDS = [
+        ("speed", obd.commands.SPEED),
+        ("rpm", obd.commands.RPM),
+        ("coolant_temp", obd.commands.COOLANT_TEMP),
+        ("engine_load", obd.commands.ENGINE_LOAD),
+        ("throttle_pos", obd.commands.THROTTLE_POS),
+        ("fuel_level", obd.commands.FUEL_LEVEL),
+    ]
 
     def __new__(cls, portstr=None, baudrate=None):
         with cls._lock:
@@ -49,25 +62,36 @@ class OBDManager:
             return None
 
 
+    def get_value(self, cmd):
+        """Query a numeric command and return its magnitude as a float
+        rounded to 1 decimal, or None if the vehicle doesn't support it."""
+        value = self.query(cmd)
+        if value is None:
+            return None
+        magnitude = getattr(value, "magnitude", value)
+        try:
+            return round(float(magnitude), 1)
+        except (TypeError, ValueError):
+            return None
+
     def get_speed(self):
-        value = self.query(obd.commands.SPEED)
-        return float(value.magnitude) if value is not None else 0.0
+        return self.get_value(obd.commands.SPEED) or 0.0
 
     def get_rpm(self):
-        value = self.query(obd.commands.RPM)
-        return float(value.magnitude) if value is not None else 0.0
+        return self.get_value(obd.commands.RPM) or 0.0
 
     def get_coolant_temp(self):
-        value = self.query(obd.commands.COOLANT_TEMP)
-        return float(value.magnitude) if value is not None else 0.0
+        return self.get_value(obd.commands.COOLANT_TEMP) or 0.0
+
+    def get_realtime_data(self):
+        return {key: self.get_value(cmd) for key, cmd in self.REALTIME_COMMANDS}
 
     def get_fuel_status(self):
         value = self.query(obd.commands.FUEL_STATUS)
         return str(value) if value is not None else None
 
     def get_throttle_pos(self):
-        value = self.query(obd.commands.THROTTLE_POS)
-        return float(value.magnitude) if value is not None else 0.0
+        return self.get_value(obd.commands.THROTTLE_POS) or 0.0
     
     def get_dtc(self):
         dtcs = self.query(obd.commands.GET_DTC)
@@ -84,11 +108,9 @@ class OBDManager:
         return json.dumps(dtc_list) 
 
     def main(self):
-        self.obd_connection.watch(obd.commands.SPEED)
-        self.obd_connection.watch(obd.commands.RPM)
-        self.obd_connection.watch(obd.commands.COOLANT_TEMP)
+        for _, cmd in self.REALTIME_COMMANDS:
+            self.obd_connection.watch(cmd)
         self.obd_connection.watch(obd.commands.FUEL_STATUS)
-        self.obd_connection.watch(obd.commands.THROTTLE_POS)
         self.obd_connection.watch(obd.commands.GET_DTC)
         self.obd_connection.start()
 

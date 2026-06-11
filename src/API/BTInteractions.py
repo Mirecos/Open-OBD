@@ -18,6 +18,10 @@ import logging
 logging.getLogger('bless').setLevel(logging.DEBUG)
 logger = Logger("Bluetooth Server")
 
+# BLE characteristics are capped at 512 bytes. Keep a safety margin below
+# that hard limit when building paginated responses.
+BLE_RESPONSE_LIMIT = 500
+
 # NOTE: Some systems require different synchronization methods.
 trigger: Union[asyncio.Event, threading.Event]
 if sys.platform in ["darwin", "win32"]:
@@ -34,6 +38,9 @@ class Request(Enum):
     GET_THROTTLE_POSITION = "get_throttle_position"
     GET_DTC = "get_dtc"
     GET_CURRENT_DRIVING_SESSION = "get_current_driving_session"
+    GET_REALTIME_DATA = "get_realtime_data"
+    GET_SESSIONS = "get_sessions"
+    GET_SESSION_SUMMARY = "get_session_summary"
 
 
 
@@ -164,7 +171,10 @@ class BluetoothServer:
 			print("Handling request:", str(request))
 			response = None  # Initialize the response object
 
-			match str(request):
+			# Requests can carry an argument as "command:argument" (e.g. "get_session_summary:3")
+			command, _, argument = str(request).partition(":")
+
+			match command:
 				case Request.HEALTHCHECK.value:
 					response = self.generate_response(True, {}, "Server is healthy !")
 				case Request.GET_SPEED.value:
@@ -182,6 +192,9 @@ class BluetoothServer:
 				case Request.GET_DTC.value:
 					dtc_data = str(OBDManager().get_dtc())
 					response = self.generate_response(True, dtc_data, "Fetched current DTC.")
+				case Request.GET_REALTIME_DATA.value:
+					realtime_data = OBDManager().get_realtime_data()
+					response = self.generate_response(True, realtime_data, "Fetched realtime data.")
 				case Request.GET_CURRENT_DRIVING_SESSION.value:
 					from .DBManager import DatabaseManager
 					db_instance = DatabaseManager.get_instance()
@@ -194,6 +207,50 @@ class BluetoothServer:
 							"readings": session_readings
 						}
 						response = self.generate_response(True, session_data, "Fetched current driving session.")
+				case Request.GET_SESSIONS.value:
+					from .DBManager import DatabaseManager
+					db_instance = DatabaseManager.get_instance()
+
+					offset = int(argument) if argument.isdigit() else 0
+					total = db_instance.count_sessions()
+					candidates = db_instance.get_sessions(offset=offset, limit=20)
+
+					# Greedily fill the page so the serialized response stays
+					# under the BLE characteristic size limit.
+					sessions = []
+					response = self.generate_response(True, {
+						"sessions": sessions,
+						"total": total,
+						"next_offset": offset if offset < total else None,
+					}, "Fetched driving sessions.")
+
+					for session in candidates:
+						attempt = sessions + [session]
+						next_offset = offset + len(attempt)
+						attempt_response = self.generate_response(True, {
+							"sessions": attempt,
+							"total": total,
+							"next_offset": next_offset if next_offset < total else None,
+						}, "Fetched driving sessions.")
+
+						if len(attempt_response.encode('utf-8')) > BLE_RESPONSE_LIMIT and sessions:
+							break
+
+						sessions = attempt
+						response = attempt_response
+				case Request.GET_SESSION_SUMMARY.value:
+					from .DBManager import DatabaseManager
+					db_instance = DatabaseManager.get_instance()
+					if not argument:
+						response = self.generate_response(False, {}, "Missing session id.")
+					elif not argument.isdigit():
+						response = self.generate_response(False, {}, "Invalid session id.")
+					else:
+						summary = db_instance.get_session_summary(int(argument))
+						if summary is None:
+							response = self.generate_response(False, {}, "Session not found.")
+						else:
+							response = self.generate_response(True, summary, "Fetched session summary.")
 			print("Response generated:", response)
 			return response
 		except Exception as e:
